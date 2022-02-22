@@ -10,7 +10,8 @@ from PySide2.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PySide2.QtWidgets import QGraphicsScene, QGraphicsView, QColorDialog
 from PySide2.QtCore import QPointF, Qt
 # from numba.experimental import jitclass
-from numba import jit
+# from numba import jit
+from itertools import groupby
 
 from MainWindow import Ui_MainWindow
 
@@ -21,6 +22,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionOpen.triggered.connect(self.getData)
         self.periodicitySlider.valueChanged.connect(self.setPeriodicity)
         self.periodicitySlider.sliderReleased.connect(self.reRun)
+        self.filteredData = None
         self.data = None
         self.positions = None
         self.border =  1.1
@@ -86,9 +88,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def reRun(self):
         if self.loaded:
             self.drawTrace()
-    @staticmethod
-    @jit(nopython=True, parallel=True)
-    def drawTrace(positions):
+
+    def drawTrace(self):
         self.scene.clear()
         hue = 0
         lastX = self.positions[0,0]
@@ -119,13 +120,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.data = np.delete(self.data,[0,1,2,5,6], axis=1)
         lastX = 0
         lastY = 0
-        self.positions = np.empty((0,2))
-        for dx, dy in self.data:
-            px = lastX+dx
-            py = lastY+dy
-            self.positions = np.append(self.positions, [[px, py]], axis=0)
-            lastX = px
-            lastY = py
+        # self.positions = np.empty((0,2))
+        
+        self.delta = np.array([np.array(k)*len(list(g)) for k,g in groupby(self.data, key=lambda t: (t[0], t[1]))])
+        self.positions = np.cumsum(self.delta, axis=0)
+        # for dx, dy in self.filteredData:
+        #     px = lastX+dx
+        #     py = lastY+dy
+        #     self.positions = np.append(self.positions, [[px, py]], axis=0)
+        #     lastX = px
+        #     lastY = py
         self.loaded = True
         self.drawTrace()
         
